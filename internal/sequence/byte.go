@@ -2,8 +2,10 @@ package sequence
 
 type byteSequence struct {
 	baseSequence
+
 	byteRange [][2]byte
-	char      byte
+
+	char byte
 }
 
 func (seq *byteSequence) addRange(low, hi byte) {
@@ -21,6 +23,10 @@ func (seq *byteSequence) shouldEnter(c byte) bool {
 
 func (seq *byteSequence) shouldExit() bool {
 	return true
+}
+
+func (seq *byteSequence) shouldHandOver() bool {
+	return false
 }
 
 func (seq *byteSequence) reset() {

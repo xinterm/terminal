@@ -15,7 +15,14 @@ type dispatch struct {
 func newDispatch(log util.Logger) *dispatch {
 	return &dispatch{
 		log:    log,
-		result: make(chan *Result, 512),
+		result: make(chan *Result, 2),
+	}
+}
+
+func (dp *dispatch) dispatchExit() {
+	dp.result <- &Result{
+		Type:  ResultExit,
+		Value: nil,
 	}
 }
 
@@ -40,13 +47,23 @@ func (dp *dispatch) dispatchUTF8(r rune) {
 	}
 }
 
+func (dp *dispatch) dispatchEscape(c byte, param string) {
+	dp.result <- &Result{
+		Type: ResultEscape,
+		Value: EscapeResult{
+			Char:  c,
+			Param: param,
+		},
+	}
+}
+
 func (dp *dispatch) dispatchCSI(param, intermediate string, final byte) {
 	dp.result <- &Result{
 		Type: ResultCSI,
 		Value: CSIResult{
-			param:        strings.Split(param, ";"),
-			intermediate: intermediate,
-			final:        final,
+			Param:        strings.Split(param, ";"),
+			Intermediate: intermediate,
+			Final:        final,
 		},
 	}
 }
@@ -55,7 +72,7 @@ func (dp *dispatch) dispatchOSC(param string) {
 	dp.result <- &Result{
 		Type: ResultOSC,
 		Value: OSCResult{
-			param: strings.Split(param, ";"),
+			Param: strings.Split(param, ";"),
 		},
 	}
 }

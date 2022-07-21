@@ -1,0 +1,219 @@
+package terminal
+
+const (
+	defaultBlockLines = 512
+)
+
+// LineAbsNo is the absolute number of line
+type LineAbsNo int64
+
+type lineContainer struct {
+	firstLineAbsNo LineAbsNo
+	lastLineAbsNo  LineAbsNo
+	firstDisplayNo int64
+	lastDisplayNo  int64
+
+	lineMap    map[LineAbsNo]*line
+	displayMap map[int64]LineAbsNo
+}
+
+type blockBuffer struct {
+	buf [][]LineAbsNo
+
+	// This could NOT be changed after any new line created
+	blockLines int
+
+	maxLines  int
+	maxBlocks int
+
+	startBlockNo   int
+	startSubLineNo int
+	endBlockNo     int
+	endSubLineNo   int
+
+	totalLines int
+}
+
+type scroll struct {
+	lines *lineContainer
+	blk   *blockBuffer
+
+	totalDisplayLines int
+}
+
+func newScroll() *scroll {
+	return &scroll{
+		lines: &lineContainer{
+			lineMap:    make(map[LineAbsNo]*line),
+			displayMap: make(map[int64]LineAbsNo),
+		},
+		blk: &blockBuffer{
+			blockLines: defaultBlockLines,
+		},
+	}
+}
+
+func (scrl *scroll) recalculateDisplayLineNo(cols int) {
+}
+
+func (scrl *scroll) setMaxLines(maxLines int) {
+	if maxLines < 0 {
+		// This is the maximum int value
+		maxLines = int(^uint(0) >> 1)
+	}
+
+	scrl.blk.maxLines = maxLines
+
+	// This maxBlocks assures that startBlockNo and endBlockNo do not overlap in a circle
+	scrl.blk.maxBlocks = (maxLines + 2*scrl.blk.blockLines - 2) / scrl.blk.blockLines
+
+	if scrl.blk.totalLines > scrl.blk.maxLines {
+		scrl.removeHeadLines(scrl.blk.totalLines - scrl.blk.maxLines)
+	}
+}
+
+// Rotate the buf slice to startBlockNo == 0
+// and delete extra elements
+func (scrl *scroll) normalize() {
+	step := scrl.blk.startBlockNo
+
+	if step != 0 {
+		bufLen := len(scrl.buf)
+		temp := scrl.buf[0]
+		index := 0
+		startIndex := 0
+		for i := range scrl.buf {
+			swapIndex := (index + step) % bufLen
+			if swapIndex == startIndex {
+				scrl.buf[index] = temp
+				if i == bufLen-1 {
+					break
+				}
+				startIndex++
+				index = startIndex
+				temp = scrl.buf[index]
+			} else {
+				scrl.buf[index] = scrl.buf[swapIndex]
+				index = swapIndex
+			}
+		}
+
+		scrl.startBlockNo = 0
+		scrl.endBlockNo = (scrl.endBlockNo + bufLen - step) % bufLen
+	}
+
+	scrl.buf = scrl.buf[:scrl.endBlockNo+1]
+}
+
+func (scrl *scroll) _moveToNextLine(blockNo, subLineNo *int) {
+	*subLineNo++
+	if *subLineNo >= scrl.blockLines {
+		*subLineNo -= scrl.blockLines
+		*blockNo++
+		if *blockNo >= scrl.maxBlocks {
+			*blockNo -= scrl.maxBlocks
+		}
+	}
+}
+
+func (scrl *scroll) _moveToPrevLine(blockNo, subLineNo *int) {
+	*subLineNo--
+	if *subLineNo < 0 {
+		*subLineNo += scrl.blockLines
+		*blockNo--
+		if *blockNo < 0 {
+			*blockNo += scrl.maxBlocks
+		}
+	}
+}
+
+func (scrl *scroll) putCell(c *Cell, lineNo LineAbsNo, pos int) {
+	scrl.lines
+}
+
+func (scrl *scroll) newLine() *line {
+	if scrl.maxLines <= 0 {
+		return nil
+	}
+
+	if scrl.totalLines < scrl.maxLines {
+		scrl.totalLines++
+	} else {
+		scrl.buf[scrl.startBlockNo][scrl.startSubLineNo] = 0 ////////
+		scrl._moveToNextLine(&scrl.startBlockNo, &scrl.startSubLineNo)
+	}
+
+	if scrl.endBlockNo >= len(scrl.buf) {
+		//scrl.buf = append(scrl.buf, make([]*line, scrl.blockLines))
+	}
+
+	line := &line{}
+	//scrl.buf[scrl.endBlockNo][scrl.endSubLineNo] = line
+
+	scrl._moveToNextLine(&scrl.endBlockNo, &scrl.endSubLineNo)
+
+	return line
+}
+
+func (scrl *scroll) newLines(number int) {
+	for i := 0; i < number; i++ {
+		line := scrl.newLine()
+		if line == nil {
+			break
+		}
+	}
+}
+
+func (scrl *scroll) firstLine() LineAbsNo {
+	if scrl.totalLines <= 0 {
+		return 0
+	}
+	return scrl.buf[scrl.startBlockNo][scrl.startSubLineNo]
+}
+
+func (scrl *scroll) lastLine() LineAbsNo {
+	if scrl.totalLines <= 0 {
+		return 0
+	}
+	return scrl.line(scrl.totalLines - 1)
+}
+
+func (scrl *scroll) line(lineNo int) LineAbsNo {
+	if lineNo < 0 || lineNo >= scrl.totalLines {
+		return 0
+	}
+
+	tempLineNo := scrl.startSubLineNo + lineNo
+	tempBlockNo := scrl.startBlockNo + tempLineNo/scrl.blockLines
+
+	blockNo := tempBlockNo % len(scrl.buf)
+	subLineNo := tempLineNo % scrl.blockLines
+
+	return scrl.buf[blockNo][subLineNo]
+}
+
+func (scrl *scroll) removeHeadLines(number int) {
+	if number > scrl.totalLines {
+		number = scrl.totalLines
+	}
+
+	for i := 0; i < number; i++ {
+		scrl.buf[scrl.startBlockNo][scrl.startSubLineNo] = 0 ////////
+		scrl._moveToNextLine(&scrl.startBlockNo, &scrl.startSubLineNo)
+		scrl.totalLines--
+	}
+
+	scrl.normalize()
+}
+
+func (scrl *scroll) removeTailLines(number int) {
+	if number > scrl.totalLines {
+		number = scrl.totalLines
+	}
+
+	for i := 0; i < number; i++ {
+		scrl._moveToPrevLine(&scrl.endBlockNo, &scrl.endSubLineNo)
+		scrl.buf[scrl.endBlockNo][scrl.endSubLineNo] = 0 ////////
+		scrl.totalLines--
+	}
+}

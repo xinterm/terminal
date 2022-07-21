@@ -4,6 +4,10 @@ type baseSequence struct {
 	handler func()
 }
 
+func (seq *baseSequence) shouldHandOver() bool {
+	return true
+}
+
 func (seq *baseSequence) reset() {
 	// An empty base if nothing to reset
 }
@@ -11,11 +15,7 @@ func (seq *baseSequence) reset() {
 func (seq *baseSequence) process(byte) {
 }
 
-func (seq *baseSequence) startSubSequence() bool {
-	return true
-}
-
-func (seq *baseSequence) dispatch() {
+func (seq *baseSequence) handle() {
 	if seq.handler != nil {
 		seq.handler()
 	}

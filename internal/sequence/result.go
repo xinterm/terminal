@@ -5,15 +5,19 @@ type ResultType int
 
 // Result types
 const (
-	ResultASCII ResultType = iota
+	ResultExit ResultType = iota
+
+	ResultASCII
 	ResultC0
 	ResultUTF8
+	ResultEscape
 
 	ResultCSI
 	ResultCS
 
 	ResultOSC
-	ResultOSCTitle
+
+	ResultTitle
 )
 
 // Result will be passed by channel
@@ -22,14 +26,20 @@ type Result struct {
 	Value interface{}
 }
 
+// EscapeResult contains the escape sequence result
+type EscapeResult struct {
+	Char  byte
+	Param string
+}
+
 // CSIResult contains the CSI sequence result
 type CSIResult struct {
-	param        []string
-	intermediate string
-	final        byte
+	Param        []string
+	Intermediate string
+	Final        byte
 }
 
 // OSCResult contains the OSC sequence result
 type OSCResult struct {
-	param []string
+	Param []string
 }

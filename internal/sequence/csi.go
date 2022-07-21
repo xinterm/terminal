@@ -31,6 +31,6 @@ func (seq *csiSequence) process(c byte) {
 	seq.processCounter++
 }
 
-func (seq *csiSequence) startSubSequence() bool {
+func (seq *csiSequence) shouldHandOver() bool {
 	return seq.processCounter > 1
 }
